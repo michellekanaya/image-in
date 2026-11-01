@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image In</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="main-container">
+        <header class="app-header">
+            <h1 class="app-title">
+                <a href="index.html" class="app-title-link">
+                    <i data-lucide="book-image" stroke-width="2.5" class="app-title-icon"></i>
+                    <span>Image In</span>
+                </a>
+            </h1>
+            <p class="app-subtitle">toolkit gambar gratis dan sederhana.</p>
+        </header>
+        <!-- Feature Selector Buttons -->
+        <div class="feature-selector">
+            <button onclick="selectFeature('convert')" id="btn-convert" class="feature-btn">
+                <i data-lucide="refresh-cw"></i> Convert
+            </button>
+            <button onclick="selectFeature('compress')" id="btn-compress" class="feature-btn">
+                <i data-lucide="minimize-2"></i> Compress
+            </button>
+            <button onclick="selectFeature('upscale')" id="btn-upscale" class="feature-btn">
+                <i data-lucide="sparkles"></i> Upscale
+            </button>
+        </div>
+
+        <!-- Main Workspace -->
+        <div id="workspace" class="workspace hidden">
+
+            <!-- Active Feature Banner -->
+            <div class="active-banner">
+                <div class="banner-info">
+                    <span class="banner-icon" id="active-icon">
+                        <i data-lucide="image"></i>
+                    </span>
+                    <div>
+                        <h2 class="banner-title" id="active-title">Mode</h2>
+                        <p class="banner-desc" id="active-desc">Deskripsi fitur</p>
+                    </div>
+                </div>
+                <button onclick="resetAll()" class="reset-btn">Ganti Fitur</button>
+            </div>
+
+            <!-- Upload Zone / Gallery Container -->
+            <div id="dropzone" class="dropzone" onclick="triggerFileInput()">
+                <!-- Input file dengan atribut multiple untuk mendukung banyak gambar -->
+                <input type="file" id="fileInput" class="hidden" accept="image/*,.heic,.heif,.tiff,.bmp" multiple
+                    onchange="handleFileSelect(event)">
+                <div id="dropzone-initial-content" class="dropzone-content">
+                    <div class="dropzone-icon-wrapper">
+                        <i data-lucide="upload-cloud" class="upload-icon-svg"></i>
+                    </div>
+                    <p class="dropzone-text">Klik atau Seret Gambar ke Sini</p>
+                    <p class="dropzone-subtext">(Maks. 10 MB per file)</p>
+                </div>
+                <!-- Container untuk menampilkan daftar thumbnail gambar yang di-upload + tombol plus -->
+                <div id="image-gallery-grid" class="image-gallery-grid hidden" onclick="event.stopPropagation()">
+                    <!-- Item galeri & tombol plus akan dirender secara dinamis oleh JavaScript -->
+                </div>
+            </div>
+
+            <!-- Options Panel -->
+            <div id="options-panel" class="options-panel hidden">
+
+                <!-- Convert Controls -->
+                <div id="controls-convert" class="feature-control hidden">
+                    <h3 class="control-title">Pengaturan Konversi</h3>
+                    <div class="control-grid-1">
+                        <div>
+                            <label class="control-label">Pilih Format Output Target</label>
+                            <select id="targetFormat" class="control-select">
+                                <option value="image/jpeg">JPEG/JPG</option>
+                                <option value="image/png">PNG</option>
+                                <option value="image/webp">WEBP</option>
+                                <option value="image/heif">HEIF</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Compress Controls -->
+                <div id="controls-compress" class="feature-control hidden">
+                    <h3 class="control-title">Pengaturan Kompresi</h3>
+                    <div class="control-grid-2">
+                        <div>
+                            <label class="control-label">Target Ukuran File</label>
+                            <div class="target-size-wrapper">
+                                <input type="number" id="targetSizeMB" placeholder="Contoh: 1" step="0.1" min="0.1"
+                                    class="control-input">
+
+                                <select id="targetSizeUnit" class="control-select">
+                                    <option value="KB">KB</option>
+                                    <option value="MB" selected>MB</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="compress-dimension-group">
+                            <label class="control-label">Dimensi (Panjang × Lebar dalam px)</label>
+                            <div class="dimension-input-wrapper">
+                                <input type="number" id="customWidth" placeholder="Lebar" class="control-input">
+                                <span class="dimension-separator">×</span>
+                                <input type="number" id="customHeight" placeholder="Tinggi" class="control-input">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upscale Controls -->
+                <div id="controls-upscale" class="feature-control hidden">
+                    <h3 class="control-title">Pengaturan RealESRGAN (AI Upscale)</h3>
+                    <div class="upscale-box">
+                        <p class="upscale-text">AI Upscaling ini menggunakan model <code
+                                class="code-highlight">RealESRGANx4plus.pth</code> untuk melakukan rekonstruksi tekstur
+                            & detail gambar hingga 4x lipat.</p>
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <button onclick="processImages()" class="action-btn">
+                    <i data-lucide="image-up"></i> Proses Gambar
+                </button>
+            </div>
+
+            <!-- Preview & Result Section -->
+            <div id="result-panel" class="result-container hidden">
+                <div id="result-cards-wrapper" class="result-cards-wrapper">
+                    <!-- Kartu hasil per gambar akan dimasukkan via JavaScript di sini -->
+                </div>
+            </div>
+
+        </div>
+    </div>
+    <script src="script.js"></script>
+    <footer>©2026. Capstone Project 63 Kelompok A</footer>
+</body>
+
+</html>
