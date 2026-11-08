@@ -722,82 +722,76 @@ async function processImages() {
 
                         const targetMaxBytes = targetSizeInput * sizeMultiplier;
 
-                        // Target 2 MB berarti sasaran antara 1 MB sampai 2 MB.
-                        // Target 1 MB berarti hasil maksimal 1 MB.
-                        const targetMinBytes = targetSizeInput > 1
-                            ? (targetSizeInput - 1) * sizeMultiplier
-                            : 0;
-
-                        canvas.width = targetWidth;
-                        canvas.height = targetHeight;
-
-                        ctx.imageSmoothingEnabled = true;
-                        ctx.imageSmoothingQuality = 'high';
-
-                        let currentImg = img;
-                        let currWidth = img.width;
-                        let currHeight = img.height;
-
-                        while (currWidth / 2 >= targetWidth) {
-                            currWidth = Math.floor(currWidth / 2);
-                            currHeight = Math.floor(currHeight / 2);
-
-                            let stepCanvas = document.createElement('canvas');
-                            stepCanvas.width = currWidth;
-                            stepCanvas.height = currHeight;
-
-                            let stepCtx = stepCanvas.getContext('2d');
-                            stepCtx.imageSmoothingEnabled = true;
-                            stepCtx.imageSmoothingQuality = 'high';
-                            stepCtx.drawImage(currentImg, 0, 0, currWidth, currHeight);
-
-                            currentImg = stepCanvas;
-                        }
-
-                        ctx.drawImage(currentImg, 0, 0, targetWidth, targetHeight);
-
-                        if (
-                            !isNaN(targetSizeInput) &&
-                            targetSizeInput > 0
-                        ) {
-                            let minQuality = 0.01;
-                            let maxQuality = 1.0;
-
-                            let bestQuality = minQuality;
-                            let bestUrl = canvas.toDataURL(outputMime, bestQuality);
+                        if (Number.isFinite(targetSizeInput) && targetSizeInput > 0) {
+                            const MIN_QUALITY = 0.80;
+                            const MAX_QUALITY = 0.95;
+                            const QUALITY_ATTEMPTS = 6; // <-- Dipangkas dari 20 ke 6 agar super cepat
+                            const DIMENSION_REDUCTION = 0.85; // <-- Lebih agresif (15% reduction) dari 0.95
 
                             const getDataUrlSize = (dataUrl) => {
                                 const base64 = dataUrl.split(',')[1];
-                                return Math.ceil(base64.length * 3 / 4);
+                                const padding = (base64.match(/=*$/) || [''])[0].length;
+                                return Math.floor(base64.length * 3 / 4) - padding;
                             };
 
-                            let bestSize = getDataUrlSize(bestUrl);
+                            let bestUrl = null;
+                            let bestSize = Infinity;
+                            const aspectRatio = img.width / img.height;
 
-                            // Mencari kualitas tertinggi yang masih memenuhi batas maksimal.
-                            for (let attempt = 0; attempt < 18; attempt++) {
-                                const testQuality = (minQuality + maxQuality) / 2;
+                            while (true) {
+                                canvas.width = targetWidth;
+                                canvas.height = targetHeight;
 
-                                const testUrl = canvas.toDataURL(
-                                    outputMime,
-                                    testQuality
-                                );
+                                ctx.imageSmoothingEnabled = true;
+                                ctx.imageSmoothingQuality = 'high';
+                                ctx.clearRect(0, 0, targetWidth, targetHeight);
+                                ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-                                const testSize = getDataUrlSize(testUrl);
+                                const minimumUrl = canvas.toDataURL(outputMime, MIN_QUALITY);
+                                const minimumSize = getDataUrlSize(minimumUrl);
 
-                                if (testSize <= targetMaxBytes) {
-                                    bestQuality = testQuality;
-                                    bestUrl = testUrl;
-                                    bestSize = testSize;
+                                if (minimumSize <= targetMaxBytes) {
+                                    let minQuality = MIN_QUALITY;
+                                    let maxQuality = MAX_QUALITY;
+                                    bestUrl = minimumUrl;
+                                    bestSize = minimumSize;
+                                    quality = MIN_QUALITY;
 
-                                    minQuality = testQuality;
-                                } else {
-                                    maxQuality = testQuality;
+                                    // Pencarian biner yang dibatasi max 6 kali iterasi (sangat cepat)
+                                    for (let attempt = 0; attempt < QUALITY_ATTEMPTS; attempt++) {
+                                        const testQuality = (minQuality + maxQuality) / 2;
+                                        const testUrl = canvas.toDataURL(outputMime, testQuality);
+                                        const testSize = getDataUrlSize(testUrl);
+
+                                        if (testSize <= targetMaxBytes) {
+                                            bestUrl = testUrl;
+                                            bestSize = testSize;
+                                            quality = testQuality;
+                                            minQuality = testQuality;
+                                        } else {
+                                            maxQuality = testQuality;
+                                        }
+                                    }
+                                    break;
+                                }
+
+                                // Jika belum masuk target, perkecil dimensi dengan lompatan 0.85
+                                const previousWidth = targetWidth;
+                                const previousHeight = targetHeight;
+
+                                targetWidth = Math.max(1, Math.floor(targetWidth * DIMENSION_REDUCTION));
+                                targetHeight = Math.max(1, Math.round(targetWidth / aspectRatio));
+
+                                if (targetWidth === previousWidth && targetHeight === previousHeight) {
+                                    break;
                                 }
                             }
 
-                            // Menyimpan hasil encoding agar tidak perlu encoding ulang.
+                            if (bestUrl === null) {
+                                alert('Gambar tidak dapat dikompresi hingga mencapai target ukuran.');
+                                return;
+                            }
                             preEncodedResultUrl = bestUrl;
-                            quality = bestQuality;
                         }
                     }
 
