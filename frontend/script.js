@@ -1,3 +1,5 @@
+const API_BASE_URL = 'https://michellekanaya--image-in-backend-flask-app.us-east.modal.run';
+
 // Initialize Icons
 lucide.createIcons();
 
@@ -567,7 +569,7 @@ async function processImages() {
                 }
             }, 1000);
 
-            const response = await fetch('https://baguette-krypton-drained.ngrok-free.dev/upscale', {
+            const response = await fetch(`${API_BASE_URL}/upscale`, {
                 method: 'POST',
                 body: formData
             });
